@@ -14,7 +14,6 @@ import {
   dissoc,
   keys,
   forEach,
-  pipe,
   partial,
   contains,
   always
@@ -76,6 +75,9 @@ const isPromise = obj =>
   !!obj &&
   (typeof obj === 'object' || typeof obj === 'function') &&
   typeof obj.then === 'function'
+
+const pipePromises = (...fns) => x =>
+  fns.reduce((p, fn) => p.then(fn), Promise.resolve(x))
 
 // the default headers given to axios
 export const DEFAULT_HEADERS = {
@@ -159,11 +161,14 @@ export const create = config => {
   const requestTransforms = []
   const asyncRequestTransforms = []
   const responseTransforms = []
+  const asyncResponseTransforms= []
 
   const addRequestTransform = transform => requestTransforms.push(transform)
   const addAsyncRequestTransform = transform =>
     asyncRequestTransforms.push(transform)
   const addResponseTransform = transform => responseTransforms.push(transform)
+  const addAsyncResponseTransform = transform =>
+    asyncResponseTransforms.push(transform)
 
   // convenience for setting new request headers
   const setHeader = (name, value) => {
@@ -241,7 +246,7 @@ export const create = config => {
     }
 
     // after the call, convert the axios response, then execute our monitors
-    const chain = pipe(
+    const chain = pipePromises(
       convertResponse(toNumber(new Date())),
       // partial(convertResponse, [toNumber(new Date())]),
       runMonitors
@@ -272,7 +277,7 @@ export const create = config => {
     Converts an axios response/error into our response.
    */
   const convertResponse = curry(
-    (startedAt: number, axiosResult: AxiosResponse | AxiosError) => {
+    async (startedAt: number, axiosResult: AxiosResponse | AxiosError) => {
       const end: number = toNumber(new Date())
       const duration: number = end - startedAt
 
@@ -307,6 +312,18 @@ export const create = config => {
         forEach(transform => transform(transformedResponse), responseTransforms)
       }
 
+      // add the async response transforms
+      if (asyncResponseTransforms.length > 0) {
+        for (let index = 0; index < asyncResponseTransforms.length; index++) {
+          const transform = asyncResponseTransforms[index](transformedResponse)
+          if (isPromise(transform)) {
+            return await transform
+          } else {
+            return await transform(transformedResponse)
+          }
+        }
+      }
+
       return transformedResponse
     }
   )
@@ -319,9 +336,11 @@ export const create = config => {
     requestTransforms,
     asyncRequestTransforms,
     responseTransforms,
+    asyncResponseTransforms,
     addRequestTransform,
     addAsyncRequestTransform,
     addResponseTransform,
+    addAsyncResponseTransform,
     setHeader,
     setHeaders,
     deleteHeader,
