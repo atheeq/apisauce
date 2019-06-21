@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Steve Kellock <steve@kellock.ca>",
   "ava": {
     "require": [
@@ -42,10 +42,10 @@
   ],
   "license": "MIT",
   "main": "./dist/apisauce.js",
-  "name": "apisauce",
+  "name": "@bluejeans/apisauce",
   "repository": {
     "type": "git",
-    "url": "https://github.com/skellock/apisauce.git"
+    "url": "https://github.com/atheeq/apisauce.git"
   },
   "scripts": {
     "build": "BABEL_ENV=production rollup -c",
